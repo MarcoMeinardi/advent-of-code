@@ -1,66 +1,52 @@
 use std::io::{self, BufRead};
 use std::collections::HashMap;
 
-fn get_input() -> Vec<(i32, i32)> {
+fn get_input() -> (Vec<i32>, Vec<i32>) {
     let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
+    let lines = stdin.lock().lines();
 
-    let mut res = Vec::new();
+    let (left, right): (Vec<i32>, Vec<i32>) = lines
+        .into_iter()
+        .map(|line| {
+            let parsed: Vec<i32> = line
+                .unwrap()
+                .split_whitespace()
+                .map(|x| x.parse().unwrap())
+                .collect();
 
-    while let Some(Ok(line)) = lines.next() {
-        let inputs: Vec<i32> = line
-            .split_whitespace()
-            .map(|x| x.parse().unwrap())
-            .collect();
+            assert_eq!(parsed.len(), 2);
+            return (parsed[0], parsed[1]);
+        })
+        .unzip();
 
-        assert_eq!(inputs.len(), 2);
-        res.push((inputs[0], inputs[1]));
-    }
-
-    return res;
+    return (left, right);
 }
 
-fn part1(input: &Vec<(i32, i32)>) {
-    let mut total = 0;
-
-    let mut left = Vec::new();
-    let mut right = Vec::new();
-
-    for (a, b) in input.iter() {
-        left.push(*a);
-        right.push(*b);
-    }
-
+fn part1(left: &[i32], right: &[i32]) {
+    let mut left = left.to_owned();
+    let mut right = right.to_owned();
     left.sort();
     right.sort();
 
-    for (a, b) in left.iter().zip(right.iter()) {
-        total += (a - b).abs();
-    }
+    let total: i32 = left.iter().zip(right.iter()).map(|(a, b)| (a - b).abs()).sum();
 
     println!("Part 1: {}", total);
 }
 
-fn part2(input: &Vec<(i32, i32)>) {
+fn part2(left: &[i32], right: &[i32]) {
     let mut frequency: HashMap<i32, i32> = HashMap::new();
 
-    for (_, b) in input.iter() {
+    for b in right.iter() {
         *frequency.entry(*b).or_insert(0) += 1;
     }
 
-    let mut total = 0;
-
-    for (a, _) in input.iter() {
-        if let Some(b) = frequency.get(a) {
-            total += a * b;
-        }
-    }
+    let total: i32 = left.iter().map(|a| a * frequency.get(a).unwrap_or(&0)).sum();
 
     println!("Part 2: {}", total);
 }
 
 fn main() {
-    let input = get_input();
-    part1(&input);
-    part2(&input);
+    let (left, right) = get_input();
+    part1(&left, &right);
+    part2(&left, &right);
 }
