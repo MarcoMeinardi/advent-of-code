@@ -1,6 +1,5 @@
 use std::io::{self, BufRead};
 use more_asserts::assert_ge;
-use for_else::for_;
 use num_traits::sign::signum;
 
 fn get_input() -> Vec<Vec<i32>> {
@@ -22,20 +21,24 @@ fn get_input() -> Vec<Vec<i32>> {
     return res;
 }
 
+fn check_good(row: &Vec<i32>) -> bool {
+    let diff_0 = row[1] - row[0];
+
+    for i in 0..(row.len() - 1) {
+        let diff = row[i + 1] - row[i];
+        if signum(diff) != signum(diff_0) || diff.abs() < 1 || diff.abs() > 3 {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 fn part1(inputs: &Vec<Vec<i32>>) {
     let mut total = 0;
 
     for row in inputs {
-        let diff_0 = row[1] - row[0];
-
-        for_! { i in 0..(row.len() - 1) {
-            let diff = row[i + 1] - row[i];
-            if signum(diff) != signum(diff_0) || diff.abs() < 1 || diff.abs() > 3 {
-                break;
-            }
-        } else {
-            total += 1;
-        } }
+        total += check_good(&row) as i32;
     }
 
     println!("Part 1: {}", total);
@@ -45,17 +48,10 @@ fn part2(inputs: &Vec<Vec<i32>>) {
     let mut total = 0;
 
     for row in inputs {
-        let diff_0 = row[1] - row[0];
-
-        for_! { i in 0..(row.len() - 1) {
-            let diff = row[i + 1] - row[i];
-            if signum(diff) != signum(diff_0) || diff.abs() < 1 || diff.abs() > 3 {
-                break;
-            }
-        } else {
+        if check_good(&row) {
             total += 1;
             continue;
-        } }
+        }
 
         for bad in 0..row.len() {
             let good_row: Vec<i32> = row.iter().enumerate().filter_map(|(ind, x)|
@@ -66,16 +62,10 @@ fn part2(inputs: &Vec<Vec<i32>>) {
                 }
             ).collect();
 
-            let diff_0 = good_row[1] - good_row[0];
-            for_! { i in 0..(good_row.len() - 1) {
-                let diff = good_row[i + 1] - good_row[i];
-                if signum(diff) != signum(diff_0) || diff.abs() < 1 || diff.abs() > 3 {
-                    break;
-                }
-            } else {
+            if check_good(&good_row) {
                 total += 1;
                 break;
-            } }
+            }
         }
 
     }
