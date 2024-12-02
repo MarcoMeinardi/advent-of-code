@@ -1,27 +1,20 @@
 use std::io::{self, BufRead};
-use more_asserts::assert_ge;
 use num_traits::sign::signum;
 
 fn get_input() -> Vec<Vec<i32>> {
     let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
+    let lines = stdin.lock().lines();
 
-    let mut res = Vec::new();
-
-    while let Some(Ok(line)) = lines.next() {
-        let inputs: Vec<i32> = line
+    return lines.
+        into_iter()
+        .map(|line| line.unwrap()
             .split_whitespace()
             .map(|x| x.parse().unwrap())
-            .collect();
-
-        assert_ge!(inputs.len(), 2);
-        res.push(inputs);
-    }
-
-    return res;
+            .collect()
+        ).collect();
 }
 
-fn check_good(row: &Vec<i32>) -> bool {
+fn check_good(row: &[i32]) -> bool {
     let diff_0 = row[1] - row[0];
 
     for i in 0..(row.len() - 1) {
@@ -34,23 +27,16 @@ fn check_good(row: &Vec<i32>) -> bool {
     return true;
 }
 
-fn part1(inputs: &Vec<Vec<i32>>) {
-    let mut total = 0;
-
-    for row in inputs {
-        total += check_good(&row) as i32;
-    }
+fn part1(inputs: &[Vec<i32>]) {
+    let total = inputs.iter().map(|row| check_good(row) as i32).sum::<i32>();
 
     println!("Part 1: {}", total);
 }
 
-fn part2(inputs: &Vec<Vec<i32>>) {
-    let mut total = 0;
-
-    for row in inputs {
-        if check_good(&row) {
-            total += 1;
-            continue;
+fn part2(inputs: &[Vec<i32>]) {
+    let total: i32 = inputs.iter().map(|row| {
+        if check_good(row) {
+            return 1;
         }
 
         for bad in 0..row.len() {
@@ -58,17 +44,17 @@ fn part2(inputs: &Vec<Vec<i32>>) {
                 if ind == bad {
                     None
                 } else {
-                    Some(x.clone())
+                    Some(*x)
                 }
             ).collect();
 
             if check_good(&good_row) {
-                total += 1;
-                break;
+                return 1;
             }
         }
 
-    }
+        return 0;
+    }).sum();
 
     println!("Part 2: {}", total);
 }
