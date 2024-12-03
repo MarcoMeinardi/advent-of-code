@@ -1,3 +1,4 @@
+use std::time::Instant;
 use std::io::{self, BufRead};
 use num_traits::sign::signum;
 
@@ -49,20 +50,28 @@ fn check_almost_good(row: &[i32]) -> bool {
     return false;
 }
 
-fn part1(inputs: &[Vec<i32>]) {
+fn part1(inputs: &[Vec<i32>]) -> i32 {
     let total = inputs.iter().filter(|x| check_good(x)).count();
 
-    println!("Part 1: {}", total);
+    return total as i32;
 }
 
-fn part2(inputs: &[Vec<i32>]) {
+fn part2(inputs: &[Vec<i32>]) -> i32 {
     let total = inputs.iter().filter(|x| check_almost_good(x)).count();
 
-    println!("Part 2: {}", total);
+    return total as i32;
 }
 
 fn main() {
     let inputs = get_input();
-    part1(&inputs);
-    part2(&inputs);
+
+    let start_part_1 = Instant::now();
+    let result_part_1 = part1(&inputs);
+    let end_part_1 = Instant::now();
+    println!("Part 1: {} ( {:.2?} )", result_part_1, end_part_1.duration_since(start_part_1));
+
+    let start_part_2 = Instant::now();
+    let result_part_2 = part2(&inputs);
+    let end_part_2 = Instant::now();
+    println!("Part 2: {} ( {:.2?} )", result_part_2, end_part_2.duration_since(start_part_2));
 }
