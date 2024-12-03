@@ -27,34 +27,36 @@ fn check_good(row: &[i32]) -> bool {
     return true;
 }
 
+fn check_almost_good(row: &[i32]) -> bool {
+    if check_good(row) {
+        return true;
+    }
+
+    for bad in 0..row.len() {
+        let good_row: Vec<i32> = row.iter().enumerate().filter_map(|(ind, x)|
+            if ind == bad {
+                None
+            } else {
+                Some(*x)
+            }
+        ).collect();
+
+        if check_good(&good_row) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 fn part1(inputs: &[Vec<i32>]) {
-    let total = inputs.iter().map(|row| check_good(row) as i32).sum::<i32>();
+    let total = inputs.iter().filter(|x| check_good(x)).count();
 
     println!("Part 1: {}", total);
 }
 
 fn part2(inputs: &[Vec<i32>]) {
-    let total: i32 = inputs.iter().map(|row| {
-        if check_good(row) {
-            return 1;
-        }
-
-        for bad in 0..row.len() {
-            let good_row: Vec<i32> = row.iter().enumerate().filter_map(|(ind, x)|
-                if ind == bad {
-                    None
-                } else {
-                    Some(*x)
-                }
-            ).collect();
-
-            if check_good(&good_row) {
-                return 1;
-            }
-        }
-
-        return 0;
-    }).sum();
+    let total = inputs.iter().filter(|x| check_almost_good(x)).count();
 
     println!("Part 2: {}", total);
 }
