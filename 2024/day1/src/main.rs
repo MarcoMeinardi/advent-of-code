@@ -26,8 +26,8 @@ fn get_input() -> (Vec<i32>, Vec<i32>) {
 fn part1(left: &[i32], right: &[i32]) -> i32 {
     let mut left = left.to_owned();
     let mut right = right.to_owned();
-    left.sort();
-    right.sort();
+    left.sort_unstable();
+    right.sort_unstable();
 
     let total: i32 = left.iter().zip(right.iter()).map(|(a, b)| (a - b).abs()).sum();
 
@@ -37,7 +37,7 @@ fn part1(left: &[i32], right: &[i32]) -> i32 {
 fn part2(left: &[i32], right: &[i32]) -> i32 {
     let mut frequency: HashMap<i32, i32> = HashMap::new();
 
-    for b in right.iter() {
+    for b in right {
         *frequency.entry(*b).or_insert(0) += 1;
     }
 
