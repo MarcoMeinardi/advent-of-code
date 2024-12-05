@@ -8,17 +8,12 @@ fn get_input() -> (Vec<(i32, i32)>, Vec<Vec<i32>>) {
     stdin.lock().read_to_end(&mut input).unwrap();
 
     let input_str = String::from_utf8(input).unwrap();
-    let split: Vec<&str> = input_str.split("\n\n").collect();
-    assert_eq!(split.len(), 2);
+    let (first, second) = input_str.split_once("\n\n").unwrap();
 
-    let first = split[0];
-    let second = split[1];
-
-    let first = first.lines().map(|line| {
-        let split: Vec<&str> = line.split('|').collect();
-        assert_eq!(split.len(), 2);
-        return (split[0].parse::<i32>().unwrap(), split[1].parse::<i32>().unwrap());
-    }).collect();
+    let first = first.lines()
+        .map(|line| line.split_once('|').unwrap())
+        .map(|(left, right)| (left.parse::<i32>().unwrap(), right.parse::<i32>().unwrap()))
+        .collect();
     
     let second = second.lines().map(|line| {
         return line.split(',').map(|num| num.parse::<i32>().unwrap()).collect();
