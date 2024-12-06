@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::time::Instant;
 use std::io::{self, BufRead};
 
@@ -7,15 +6,15 @@ static DX: [i32; 4] = [0, 1, 0, -1];
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 struct Guard {
-    y: i32,
-    x: i32,
+    y: usize,
+    x: usize,
     dir: usize
 }
 
 fn get_input() -> (Vec<Vec<bool>>, Guard) {
     let stdin = io::stdin();
 
-    let mut guard = Guard { y: -1, x: -1, dir: 0 };
+    let mut guard: Option<Guard> = None;
 
     let map = stdin.lock().lines().enumerate()
         .map(|(y, row)| row.unwrap().chars().enumerate()
@@ -23,36 +22,35 @@ fn get_input() -> (Vec<Vec<bool>>, Guard) {
                 '.' => false,
                 '#' => true,
                 _ => {
-                    guard.y = y as i32;
-                    guard.x = x as i32;
-                    guard.dir = match c {
+                    assert!(guard.is_none());
+                    guard = Some(Guard { y, x, dir: match c {
                         '^' => 0,
                         '>' => 1,
                         'v' => 2,
                         '<' => 3,
-                        _ => panic!("Invalid character")
-                    };
+                        _ => panic!("Invalid guard direction")
+                    }});
                     false
                 }
             }).collect()
         ).collect();
 
-    assert_ne!(guard.y, -1);
+    assert!(guard.is_some());
 
-    return (map, guard);
+    return (map, guard.unwrap());
 }
 
 fn do_step(map: &[Vec<bool>], guard: &mut Guard) -> bool {
-    let ny = guard.y + DY[guard.dir];
-    let nx = guard.x + DX[guard.dir];
+    let ny = guard.y as i32 + DY[guard.dir];
+    let nx = guard.x as i32 + DX[guard.dir];
 
     if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
         return false;
     } else if map[ny as usize][nx as usize] {
         guard.dir = (guard.dir + 1) % 4;
     } else {
-        guard.y = ny;
-        guard.x = nx;
+        guard.y = ny as usize;
+        guard.x = nx as usize;
     }
 
     return true;
@@ -60,25 +58,26 @@ fn do_step(map: &[Vec<bool>], guard: &mut Guard) -> bool {
 
 fn part1(map: &[Vec<bool>], guard: &Guard) -> i32 {
     let mut guard = guard.clone();
-    let mut visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut visited = vec![vec![false; map[0].len()]; map.len()];
+    let mut total = 0;
 
     loop {
-        visited.insert((guard.y, guard.x));
+        total += !visited[guard.y][guard.x] as i32;
+        visited[guard.y][guard.x] = true;
 
         if !do_step(map, &mut guard) {
             break;
         }
     }
 
-
-    return visited.len() as i32;
+    return total;
 }
 
-fn check_loop(map: &[Vec<bool>], mut guard: Guard, already_seen: &HashSet<Guard>) -> bool {
-    let mut visited: HashSet<Guard> = HashSet::new();
+fn check_loop(map: &[Vec<bool>], mut guard: Guard) -> bool {
+    let mut visited = vec![vec![0; map[0].len()]; map.len()];
 
-    while !already_seen.contains(&guard) && !visited.contains(&guard) {
-        visited.insert(guard.clone());
+    while (visited[guard.y][guard.x] & (1 << guard.dir) as u8) == 0 {
+        visited[guard.y][guard.x] |= 1 << guard.dir as u8;
 
         if !do_step(map, &mut guard) {
             return false;
@@ -89,36 +88,32 @@ fn check_loop(map: &[Vec<bool>], mut guard: Guard, already_seen: &HashSet<Guard>
 
 fn part2(map: &mut [Vec<bool>], guard: &Guard) -> i32 {
     let mut guard = guard.clone();
-    let mut visited: HashSet<(i32, i32)> = HashSet::new();
-    let mut visited_dir: HashSet<Guard> = HashSet::new();
+    let mut visited = vec![vec![false; map[0].len()]; map.len()];
 
     let mut total = 0;
 
     loop  {
-        visited.insert((guard.y, guard.x));
+        visited[guard.y][guard.x] = true;
 
-        let ny = guard.y + DY[guard.dir];
-        let nx = guard.x + DX[guard.dir];
+        let ny = guard.y as i32 + DY[guard.dir];
+        let nx = guard.x as i32 + DX[guard.dir];
 
         if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
             break;
         }
 
-        if !map[ny as usize][nx as usize] && !visited.contains(&(ny, nx)) {
+        if !map[ny as usize][nx as usize] && !visited[ny as usize][nx as usize] {
             map[ny as usize][nx as usize] = true;
-            total += check_loop(map, guard.clone(), &visited_dir) as i32;
+            total += check_loop(map, guard.clone()) as i32;
             map[ny as usize][nx as usize] = false;
         }
-
-        visited_dir.insert(guard.clone());
 
         if map[ny as usize][nx as usize] {
             guard.dir = (guard.dir + 1) % 4;
         } else {
-            guard.y = ny;
-            guard.x = nx;
+            guard.y = ny as usize;
+            guard.x = nx as usize;
         }
-
     }
 
     return total;
