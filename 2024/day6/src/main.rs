@@ -42,6 +42,22 @@ fn get_input() -> (Vec<Vec<bool>>, Guard) {
     return (map, guard);
 }
 
+fn do_step(map: &[Vec<bool>], guard: &mut Guard) -> bool {
+    let ny = guard.y + DY[guard.dir];
+    let nx = guard.x + DX[guard.dir];
+
+    if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
+        return false;
+    } else if map[ny as usize][nx as usize] {
+        guard.dir = (guard.dir + 1) % 4;
+    } else {
+        guard.y = ny;
+        guard.x = nx;
+    }
+
+    return true;
+}
+
 fn part1(map: &[Vec<bool>], guard: &Guard) -> i32 {
     let mut guard = guard.clone();
     let mut visited: HashSet<(i32, i32)> = HashSet::new();
@@ -49,16 +65,8 @@ fn part1(map: &[Vec<bool>], guard: &Guard) -> i32 {
     loop {
         visited.insert((guard.y, guard.x));
 
-        let ny = guard.y + DY[guard.dir];
-        let nx = guard.x + DX[guard.dir];
-
-        if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
+        if !do_step(map, &mut guard) {
             break;
-        } else if map[ny as usize][nx as usize] {
-            guard.dir = (guard.dir + 1) % 4;
-        } else {
-            guard.y = ny;
-            guard.x = nx;
         }
     }
 
@@ -66,42 +74,54 @@ fn part1(map: &[Vec<bool>], guard: &Guard) -> i32 {
     return visited.len() as i32;
 }
 
+fn check_loop(map: &[Vec<bool>], mut guard: Guard, already_seen: &HashSet<Guard>) -> bool {
+    let mut visited: HashSet<Guard> = HashSet::new();
+
+    while !already_seen.contains(&guard) && !visited.contains(&guard) {
+        visited.insert(guard.clone());
+
+        if !do_step(map, &mut guard) {
+            return false;
+        }
+    }
+    return true;
+}
+
 fn part2(map: &mut [Vec<bool>], guard: &Guard) -> i32 {
+    let mut guard = guard.clone();
+    let mut visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut visited_dir: HashSet<Guard> = HashSet::new();
 
-    return (0..map.len()).map(|y| (0..map[0].len()).filter(|&x| {
-        if map[y][x] {
-            return false;
+    let mut total = 0;
+
+    loop  {
+        visited.insert((guard.y, guard.x));
+
+        let ny = guard.y + DY[guard.dir];
+        let nx = guard.x + DX[guard.dir];
+
+        if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
+            break;
         }
 
-        if y == guard.y as usize && x == guard.x as usize {
-            return false;
+        if !map[ny as usize][nx as usize] && !visited.contains(&(ny, nx)) {
+            map[ny as usize][nx as usize] = true;
+            total += check_loop(map, guard.clone(), &visited_dir) as i32;
+            map[ny as usize][nx as usize] = false;
         }
 
-        map[y][x] = true;
+        visited_dir.insert(guard.clone());
 
-        let mut guard = guard.clone();
-        let mut visited: HashSet<Guard> = HashSet::new();
-
-        while !visited.contains(&guard) {
-            visited.insert(guard.clone());
-
-            let ny = guard.y + DY[guard.dir];
-            let nx = guard.x + DX[guard.dir];
-
-            if ny < 0 || ny >= map.len() as i32 || nx < 0 || nx >= map[0].len() as i32 {
-                map[y][x] = false;
-                return false;
-            } else if map[ny as usize][nx as usize] {
-                guard.dir = (guard.dir + 1) % 4;
-            } else {
-                guard.y = ny;
-                guard.x = nx;
-            }
+        if map[ny as usize][nx as usize] {
+            guard.dir = (guard.dir + 1) % 4;
+        } else {
+            guard.y = ny;
+            guard.x = nx;
         }
 
-        map[y][x] = false;
-        return true;
-    }).count() as i32).sum();
+    }
+
+    return total;
 }
 
 fn main() {
