@@ -72,6 +72,10 @@ fn part2(input: &[(u64, Vec<u64>)]) -> u64 {
             return acc == target;
         }
 
+        if acc > target {
+            return false;
+        }
+
         let value = values[index];
         return
             try_all(target, values, index + 1, acc + value) ||
