@@ -1,3 +1,5 @@
+use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 use std::time::Instant;
 use std::io::{self, BufRead};
 
@@ -17,8 +19,8 @@ fn range_sum(start: u64, length: u64) -> u64 {
 }
 
 fn part1(input: &[u64]) -> u64 {
-    let full: Vec<u64> = input.iter().step_by(2).map(|&x| x).collect();
-    let empty: Vec<u64> = input.iter().skip(1).step_by(2).map(|&x| x).collect();
+    let full: Vec<u64> = input.iter().step_by(2).copied().collect();
+    let empty: Vec<u64> = input.iter().skip(1).step_by(2).copied().collect();
 
     let mut total = 0;
 
@@ -59,33 +61,36 @@ fn part1(input: &[u64]) -> u64 {
 }
 
 fn part2(input: &[u64]) -> u64 {
-    let mut files: Vec<(u64, u64)> = Vec::new();
-    let mut empty: Vec<(u64, u64)> = Vec::new();
+    let mut files = Vec::new();
+    let mut empty = vec![BinaryHeap::new(); 10];
 
     let mut index = 0;
     input.iter().enumerate().for_each(|(i, &x)| {
         if (i & 1) == 0 {
             files.push((index, x));
-        } else {
-            empty.push((index, x));
+        } else if x > 0 {
+            empty[x as usize].push(Reverse(index));
         }
         index += x;
     });
 
     files.iter_mut().rev().for_each(|file| {
-        for (index, space) in empty.iter_mut().enumerate() {
-            if file.0 < space.0 {
-                break;
-            }
-            if space.1 >= file.1 {
-                file.0 = space.0;
-                if space.1 == file.1 {
-                    empty.remove(index);
-                } else {
-                    space.1 -= file.1;
-                    space.0 += file.1;
+        let mut best_gap = (0, file.0);
+        for gap_size in file.1..=9 {
+            if let Some(&Reverse(top)) = empty[gap_size as usize].peek() {
+                if top < best_gap.1 {
+                    best_gap = (gap_size, top);
                 }
-                break;
+            }
+        }
+
+        if best_gap.0 > 0 {
+            let (gap_size, index) = best_gap;
+
+            file.0 = index;
+            empty[gap_size as usize].pop();
+            if file.1 < gap_size {
+                empty[(gap_size - file.1) as usize].push(Reverse(index + file.1));
             }
         }
     });
