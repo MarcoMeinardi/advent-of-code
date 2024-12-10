@@ -40,8 +40,14 @@ fn part1(input: &[Vec<u8>]) -> u64 {
 }
 
 fn part2(input: &[Vec<u8>]) -> u64 {
-    fn dfs(input: &[Vec<u8>], y: usize, x: usize) -> u64 {
-        return DYX.iter().map(|(dy, dx)| {
+    let mut n_paths = vec![vec![0; input[0].len()]; input.len()];
+
+    fn dfs(input: &[Vec<u8>], y: usize, x: usize, n_paths: &mut [Vec<u64>]) -> u64 {
+        if n_paths[y][x] != 0 {
+            return n_paths[y][x];
+        }
+
+        n_paths[y][x] = DYX.iter().map(|(dy, dx)| {
             let ny = (y as i32 + dy) as usize;
             let nx = (x as i32 + dx) as usize;
 
@@ -49,15 +55,17 @@ fn part2(input: &[Vec<u8>]) -> u64 {
                 if input[ny][nx] == 9 {
                     return 1;
                 }
-                return dfs(input, ny, nx);
+                return dfs(input, ny, nx, n_paths);
             }
             return 0;
         }).sum::<u64>();
+
+        return n_paths[y][x];
     }
 
     return (0..input.len()).map(|y| (0..input[0].len()).map(|x|
         if input[y][x] == 0 {
-            dfs(input, y, x)
+            dfs(input, y, x, &mut n_paths)
         } else {
             0
         }
