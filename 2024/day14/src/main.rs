@@ -1,4 +1,3 @@
-use std::{thread, time};
 use std::time::Instant;
 use std::io::{self, BufRead};
 
@@ -46,49 +45,47 @@ fn part1(input: &[(i64, i64, i64, i64)]) -> u64 {
 }
 
 fn part2(input: &[(i64, i64, i64, i64)]) -> u64 {
-    #[allow(dead_code)]
-    fn print_tree(iteration: u64, grid: &[Vec<bool>]) {
-        eprintln!("Second {iteration}");
+    fn print_tree(iteration: u64, pos: &[(i64, i64, i64, i64)]) {
+        let mut grid = vec![vec![false; 101]; 103];
+        for (px, py, _, _) in pos {
+            grid[*py as usize][*px as usize] = true;
+        }
+
+        eprintln!("{iteration} Seconds");
         for row in grid {
             for cell in row {
-                eprint!("{}", if *cell { '█' } else { ' ' });
+                eprint!("{}", if cell { '█' } else { ' ' });
             }
             eprintln!();
         };
-        thread::sleep(time::Duration::from_millis(200));
     }
 
-    fn count_adjacient(pos: &[(i64, i64, i64, i64)], grid: &[Vec<bool>]) -> u64 {
-        return pos.iter().map(|(px, py, _, _)|
-            (*py as usize != grid.len() - 1 && grid[(*py + 1) as usize][*px as usize]) as u64 +
-            (*px as usize != grid[0].len() - 1 && grid[*py as usize][(*px + 1) as usize]) as u64
-        ).sum();
+    fn all_disjoint(pos: &mut [(i64, i64, i64, i64)]) -> bool {
+        pos.sort_unstable();
+        for i in 0..pos.len() - 1 {
+            if pos[i].0 == pos[i + 1].0 && pos[i].1 == pos[i + 1].1 {
+                return false;
+            }
+        }
+        return true;
     }
 
     let mut input = input.iter().map(|(px, py, vx, vy)| (*px, *py, *vx, *vy)).collect::<Vec<_>>();
 
-    let mut best = 0;
     let mut iteration = 0;
-    let mut grid = vec![];
 
-    while best < 530 {
+    loop {
         iteration += 1;
         for (px, py, vx, vy) in &mut input {
             *px = (*px + *vx).rem_euclid(101);
             *py = (*py + *vy).rem_euclid(103);
         }
 
-
-        grid = vec![vec![false; 101]; 103];
-        input.iter().for_each(|(px, py, _, _)| grid[*py as usize][*px as usize] = true);
-        let actual = count_adjacient(&input, &grid);
-
-        if actual < best {
-            continue;
+        if all_disjoint(&mut input) {
+            break;
         }
-        best = actual;
     }
-    print_tree(iteration, &grid);
+    print_tree(iteration, &input);
 
     return iteration;
 }
