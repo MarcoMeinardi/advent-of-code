@@ -1,3 +1,4 @@
+use statistical::variance;
 use std::time::Instant;
 use std::io::{self, BufRead};
 
@@ -45,10 +46,41 @@ fn part1(input: &[(i64, i64, i64, i64)]) -> u64 {
 }
 
 fn part2(input: &[(i64, i64, i64, i64)]) -> u64 {
-    fn print_tree(iteration: u64, pos: &[(i64, i64, i64, i64)]) {
+    fn xgcd(a: i64, b: i64) -> (i64, i64, i64) {
+        let (mut old_r, mut r) = (a, b);
+        let (mut old_s, mut s) = (1, 0);
+        let (mut old_t, mut t) = (0, 1);
+
+        while r != 0 {
+            let quotient = old_r / r;
+            let temp = r;
+            r = old_r - quotient * r;
+            old_r = temp;
+
+            let temp = s;
+            s = old_s - quotient * s;
+            old_s = temp;
+
+            let temp = t;
+            t = old_t - quotient * t;
+            old_t = temp;
+        }
+
+        return (old_r, old_s, old_t);
+    }
+
+    fn crt(x1: i64, x2: i64, m1: i64, m2: i64) -> u64 {
+        let (_, s, t) = xgcd(m1, m2);
+
+        let x = (x1 * m2 * t + x2 * m1 * s).rem_euclid(m1 * m2);
+        return x as u64;
+    }
+
+    #[allow(dead_code)]
+    fn print_tree(iteration: i64, pos: &[(i64, i64, i64, i64)]) {
         let mut grid = vec![vec![false; 101]; 103];
-        for (px, py, _, _) in pos {
-            grid[*py as usize][*px as usize] = true;
+        for (px, py, vx, vy) in pos {
+            grid[(*py + iteration * vy).rem_euclid(103) as usize][(*px + iteration * vx).rem_euclid(101) as usize] = true;
         }
 
         eprintln!("{iteration} Seconds");
@@ -60,34 +92,42 @@ fn part2(input: &[(i64, i64, i64, i64)]) -> u64 {
         };
     }
 
-    fn all_disjoint(pos: &mut [(i64, i64, i64, i64)]) -> bool {
-        pos.sort_unstable();
-        for i in 0..pos.len() - 1 {
-            if pos[i].0 == pos[i + 1].0 && pos[i].1 == pos[i + 1].1 {
-                return false;
-            }
-        }
-        return true;
-    }
+    let mut robots = input.iter().map(|(px, py, vx, vy)| (*px, *py, *vx, *vy)).collect::<Vec<_>>();
 
-    let mut input = input.iter().map(|(px, py, vx, vy)| (*px, *py, *vx, *vy)).collect::<Vec<_>>();
+    let mut min_y_variance = 1e10_f64;
+    let mut min_x_variance = 1e10_f64;
+    let mut y_iteration: u64 = 0;
+    let mut x_iteration: u64 = 0;
 
-    let mut iteration = 0;
-
-    loop {
-        iteration += 1;
-        for (px, py, vx, vy) in &mut input {
+    for iteration in 1..103 {
+        for (px, py, vx, vy) in &mut robots {
             *px = (*px + *vx).rem_euclid(101);
             *py = (*py + *vy).rem_euclid(103);
         }
 
-        if all_disjoint(&mut input) {
-            break;
+        let y_values: Vec<f64> = robots.iter().map(|(_, y, _, _)| *y as f64).collect();
+        let x_values: Vec<f64> = robots.iter().map(|(x, _, _, _)| *x as f64).collect();
+        let y_variance = variance(&y_values, None);
+        let x_variance = variance(&x_values, None);
+
+        if y_variance < min_y_variance {
+            min_y_variance = y_variance;
+            y_iteration = iteration;
+        }
+        if x_variance < min_x_variance {
+            min_x_variance = x_variance;
+            x_iteration = iteration;
         }
     }
-    print_tree(iteration, &input);
 
-    return iteration;
+    assert_ne!(y_iteration, 0);
+
+    let result = crt(y_iteration as i64, x_iteration as i64, 103, 101);
+
+    #[cfg(debug_assertions)]
+    print_tree(result as i64, input);
+
+    return result;
 }
 
 fn main() {
