@@ -1,4 +1,4 @@
-use z3::{ast::BV, ast::Ast, Context, Config, Solver};
+use z3::{ast::BV, ast::Ast, Context, Config, Optimize};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -255,7 +255,7 @@ fn part2(regs: &(u64, u64, u64), prog: &[u8]) -> u64 {
     let out = vm.get_output();
     assert_eq!(out.len(), prog.len());
 
-    let solver = Solver::new(&ctx);
+    let solver = Optimize::new(&ctx);
 
     for (sym_b, prog_b) in out.iter().zip(prog.iter()) {
         solver.assert(&sym_b._eq(&BV::from_u64(&ctx, *prog_b as u64, 64)));
@@ -263,7 +263,9 @@ fn part2(regs: &(u64, u64, u64), prog: &[u8]) -> u64 {
     let regs = vm.get_regs();
     solver.assert(&regs[Reg::A as usize]._eq(&BV::from_u64(&ctx, 0, 64)));
 
-    assert_eq!(solver.check(), z3::SatResult::Sat);
+    solver.minimize(&a);
+
+    assert_eq!(solver.check(&[]), z3::SatResult::Sat);
 
     return solver.get_model().unwrap().eval(&a, true).unwrap().as_u64().unwrap();
 }
