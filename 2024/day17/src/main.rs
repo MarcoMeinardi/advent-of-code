@@ -1,4 +1,4 @@
-use z3::{ast::BV, ast::Ast, Context, Config, Solver};
+// use z3::{ast::BV, ast::Ast, Context, Config, Solver};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -28,7 +28,7 @@ struct VM {
     out: Vec<u8>
 }
 
-#[derive(FromPrimitive, Debug)]
+#[derive(FromPrimitive, Debug, PartialEq)]
 enum Instr {
     ADV,
     BXL,
@@ -109,18 +109,22 @@ impl VM {
         self.regs[Reg::C as usize] = self.regs[Reg::A as usize] >> self.get_combo(op);
     }
 
+    fn run_instr(&mut self, instr: Instr, op: u8) {
+        match instr {
+            Instr::ADV => { self.adv(op) },
+            Instr::BXL => { self.bxl(op) },
+            Instr::BST => { self.bst(op) },
+            Instr::JNZ => { self.jnz(op) },
+            Instr::BXC => { self.bxc(op) },
+            Instr::OUT => { self.out(op) },
+            Instr::BDV => { self.bdv(op) },
+            Instr::CDV => { self.cdv(op) }
+        }
+    }
+
     pub fn run(&mut self) {
         while let Some((instr, op)) = self.parse_instruction() {
-            match instr {
-                Instr::ADV => { self.adv(op) },
-                Instr::BXL => { self.bxl(op) },
-                Instr::BST => { self.bst(op) },
-                Instr::JNZ => { self.jnz(op) },
-                Instr::BXC => { self.bxc(op) },
-                Instr::OUT => { self.out(op) },
-                Instr::BDV => { self.bdv(op) },
-                Instr::CDV => { self.cdv(op) }
-            }
+            self.run_instr(instr, op);
         }
     }
 
@@ -137,142 +141,177 @@ fn part1(regs: &(u64, u64, u64), prog: &[u8]) -> String {
     return out.iter().map(std::string::ToString::to_string).collect::<Vec<String>>().join(",")
 }
 
-struct SymVM<'a> {
-    code: Vec<u8>,
-    ctx: &'a Context,
-    regs: [BV<'a>; 3],
-    ip: usize,
-    out: Vec<BV<'a>>,
-    n_cycles: u64
-}
-
-impl<'a> SymVM<'a> {
-    pub fn new(code: &[u8], a: &'a BV, regs: &(u64, u64), ctx: &'a Context, n_cycles: u64) -> Self {
-        return Self {
-            code: code.to_vec(),
-            ctx,
-            regs: [
-                a.clone(),
-                BV::from_u64(ctx, regs.0, 64),
-                BV::from_u64(ctx, regs.1, 64)
-            ],
-            ip: 0,
-            out: Vec::new(),
-            n_cycles
-        };
+fn dfs(regs: &(u64, u64, u64), prog: &[u8], ind: usize) -> Option<u64> {
+    if ind == prog.len() {
+        return Some(regs.0);
     }
 
-    fn get_combo(&self, val: u8) -> BV<'a> {
-        if val < 4 {
-            return BV::from_u64(self.ctx, val as u64, 64);
-        }
-        if val < 7 {
-            return self.regs[val as usize - 4].clone();
-        }
-        panic!("Invalid combo value");
-    }
+    let mut min_a = None;
+    for low_a in 0..8 {
+        let maybe_a = regs.0 << 3 | low_a;
+        let mut vm = VM::new(prog, &(maybe_a, regs.1, regs.2));
+        vm.run();
 
-    fn parse_instruction(&mut self) -> Option<(Instr, u8)> {
-        if self.ip + 1 >= self.code.len() {
-            return None
-        }
-        let res = Some((FromPrimitive::from_u8(self.code[self.ip]).unwrap(), self.code[self.ip + 1]));
-        self.ip += 2;
-        return res;
-    }
+        let out = vm.get_output();
 
-    fn adv(&mut self, op: u8) {
-        self.regs[Reg::A as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
-    }
-
-    fn bxl(&mut self, op: u8) {
-        self.regs[Reg::B as usize] ^= &BV::from_u64(self.ctx, op as u64, 64);
-    }
-
-    fn bst(&mut self, op: u8) {
-        self.regs[Reg::B as usize] = self.get_combo(op) & BV::from_u64(self.ctx, 0b111, 64);
-    }
-
-    fn jnz(&mut self, op: u8) {
-        if self.n_cycles > 0 {
-            self.n_cycles -= 1;
-            self.ip = op as usize;
-        }
-    }
-
-    fn bxc(&mut self, _: u8) {
-        self.regs[Reg::B as usize] = &self.regs[Reg::B as usize] ^ &self.regs[Reg::C as usize];
-    }
-
-    fn out(&mut self, op: u8) {
-        self.out.push(self.get_combo(op).bvand(&BV::from_u64(self.ctx, 0b111, 64)));
-    }
-
-    fn bdv(&mut self, op: u8) {
-        self.regs[Reg::B as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
-    }
-
-    fn cdv(&mut self, op: u8) {
-        self.regs[Reg::C as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
-    }
-
-    pub fn run(&mut self) {
-        while let Some((instr, op)) = self.parse_instruction() {
-            match instr {
-                Instr::ADV => { self.adv(op) },
-                Instr::BXL => { self.bxl(op) },
-                Instr::BST => { self.bst(op) },
-                Instr::JNZ => { self.jnz(op) },
-                Instr::BXC => { self.bxc(op) },
-                Instr::OUT => { self.out(op) },
-                Instr::BDV => { self.bdv(op) },
-                Instr::CDV => { self.cdv(op) }
+        debug_assert_eq!(out.len(), ind + 1);
+        if out[0] == prog[prog.len() - 1 - ind] {
+            if let Some(real_a) = dfs(&(maybe_a, regs.1, regs.2), prog, ind + 1) {
+                min_a = min_a.map_or(Some(real_a), |a: u64| Some(a.min(real_a)));
             }
         }
     }
 
-    pub fn get_output(&self) -> Vec<BV> {
-        return self.out.clone();
-    }
-
-    pub fn get_regs(&self) -> [BV<'a>; 3] {
-        return self.regs.clone();
-    }
+    return min_a;
 }
 
 fn part2(regs: &(u64, u64, u64), prog: &[u8]) -> u64 {
     let (_, b, c) = regs;
 
-    assert_eq!(*prog.last().unwrap(), 0);
+    let a = dfs(&(0, *b, *c), prog, 0).unwrap();
 
-    let cfg = Config::new();
-    let ctx = Context::new(&cfg);
-    let a = BV::new_const(&ctx, "a", 64);
-    let mut vm = SymVM::new(prog, &a, &(*b, *c), &ctx, (prog.len() - 1) as u64);
-
+    let mut vm = VM::new(prog, &(a, *b, *c));
     vm.run();
 
-    let out = vm.get_output();
-    assert_eq!(out.len(), prog.len());
-
-    let solver = Solver::new(&ctx);
-
-    for (sym_b, prog_b) in out.iter().zip(prog.iter()) {
-        solver.assert(&sym_b._eq(&BV::from_u64(&ctx, *prog_b as u64, 64)));
-    }
-    let regs = vm.get_regs();
-    solver.assert(&regs[Reg::A as usize]._eq(&BV::from_u64(&ctx, 0, 64)));
-
-    let mut res = u64::MAX;
-    while solver.check() == z3::SatResult::Sat {
-        res = solver.get_model().unwrap().eval(&a, true).unwrap().as_u64().unwrap();
-        solver.assert(&a.bvult(&BV::from_u64(&ctx, res, 64)));
-    }
-
-    assert_ne!(res, u64::MAX);
-
-    return res;
+    return a;
 }
+
+// struct SymVM<'a> {
+//     code: Vec<u8>,
+//     ctx: &'a Context,
+//     regs: [BV<'a>; 3],
+//     ip: usize,
+//     out: Vec<BV<'a>>,
+//     n_cycles: u64
+// }
+//
+// impl<'a> SymVM<'a> {
+//     pub fn new(code: &[u8], a: &'a BV, regs: &(u64, u64), ctx: &'a Context, n_cycles: u64) -> Self {
+//         return Self {
+//             code: code.to_vec(),
+//             ctx,
+//             regs: [
+//                 a.clone(),
+//                 BV::from_u64(ctx, regs.0, 64),
+//                 BV::from_u64(ctx, regs.1, 64)
+//             ],
+//             ip: 0,
+//             out: Vec::new(),
+//             n_cycles
+//         };
+//     }
+//
+//     fn get_combo(&self, val: u8) -> BV<'a> {
+//         if val < 4 {
+//             return BV::from_u64(self.ctx, val as u64, 64);
+//         }
+//         if val < 7 {
+//             return self.regs[val as usize - 4].clone();
+//         }
+//         panic!("Invalid combo value");
+//     }
+//
+//     fn parse_instruction(&mut self) -> Option<(Instr, u8)> {
+//         if self.ip + 1 >= self.code.len() {
+//             return None
+//         }
+//         let res = Some((FromPrimitive::from_u8(self.code[self.ip]).unwrap(), self.code[self.ip + 1]));
+//         self.ip += 2;
+//         return res;
+//     }
+//
+//     fn adv(&mut self, op: u8) {
+//         self.regs[Reg::A as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
+//     }
+//
+//     fn bxl(&mut self, op: u8) {
+//         self.regs[Reg::B as usize] ^= &BV::from_u64(self.ctx, op as u64, 64);
+//     }
+//
+//     fn bst(&mut self, op: u8) {
+//         self.regs[Reg::B as usize] = self.get_combo(op) & BV::from_u64(self.ctx, 0b111, 64);
+//     }
+//
+//     fn jnz(&mut self, op: u8) {
+//         if self.n_cycles > 0 {
+//             self.n_cycles -= 1;
+//             self.ip = op as usize;
+//         }
+//     }
+//
+//     fn bxc(&mut self, _: u8) {
+//         self.regs[Reg::B as usize] = &self.regs[Reg::B as usize] ^ &self.regs[Reg::C as usize];
+//     }
+//
+//     fn out(&mut self, op: u8) {
+//         self.out.push(self.get_combo(op).bvand(&BV::from_u64(self.ctx, 0b111, 64)));
+//     }
+//
+//     fn bdv(&mut self, op: u8) {
+//         self.regs[Reg::B as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
+//     }
+//
+//     fn cdv(&mut self, op: u8) {
+//         self.regs[Reg::C as usize] = self.regs[Reg::A as usize].bvlshr(&self.get_combo(op));
+//     }
+//
+//     pub fn run(&mut self) {
+//         while let Some((instr, op)) = self.parse_instruction() {
+//             match instr {
+//                 Instr::ADV => { self.adv(op) },
+//                 Instr::BXL => { self.bxl(op) },
+//                 Instr::BST => { self.bst(op) },
+//                 Instr::JNZ => { self.jnz(op) },
+//                 Instr::BXC => { self.bxc(op) },
+//                 Instr::OUT => { self.out(op) },
+//                 Instr::BDV => { self.bdv(op) },
+//                 Instr::CDV => { self.cdv(op) }
+//             }
+//         }
+//     }
+//
+//     pub fn get_output(&self) -> Vec<BV> {
+//         return self.out.clone();
+//     }
+//
+//     pub fn get_regs(&self) -> [BV<'a>; 3] {
+//         return self.regs.clone();
+//     }
+// }
+//
+// fn part2(regs: &(u64, u64, u64), prog: &[u8]) -> u64 {
+//     let (_, b, c) = regs;
+//
+//     assert_eq!(*prog.last().unwrap(), 0);
+//
+//     let cfg = Config::new();
+//     let ctx = Context::new(&cfg);
+//     let a = BV::new_const(&ctx, "a", 64);
+//     let mut vm = SymVM::new(prog, &a, &(*b, *c), &ctx, (prog.len() - 1) as u64);
+//
+//     vm.run();
+//
+//     let out = vm.get_output();
+//     assert_eq!(out.len(), prog.len());
+//
+//     let solver = Solver::new(&ctx);
+//
+//     for (sym_b, prog_b) in out.iter().zip(prog.iter()) {
+//         solver.assert(&sym_b._eq(&BV::from_u64(&ctx, *prog_b as u64, 64)));
+//     }
+//     let regs = vm.get_regs();
+//     solver.assert(&regs[Reg::A as usize]._eq(&BV::from_u64(&ctx, 0, 64)));
+//
+//     let mut res = u64::MAX;
+//     while solver.check() == z3::SatResult::Sat {
+//         res = solver.get_model().unwrap().eval(&a, true).unwrap().as_u64().unwrap();
+//         solver.assert(&a.bvult(&BV::from_u64(&ctx, res, 64)));
+//     }
+//
+//     assert_ne!(res, u64::MAX);
+//
+//     return res;
+// }
 
 fn main() {
     let (regs, prog) = get_input();
