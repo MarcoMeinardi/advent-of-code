@@ -1,5 +1,7 @@
+use rayon::prelude::*;
 use std::time::Instant;
 use std::io::{self, Read};
+
 
 fn get_input() -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
     let stdin = io::stdin();
@@ -34,12 +36,11 @@ fn possible_arrangements(towels: &[Vec<u8>], design: &[u8]) -> u64 {
 }
 
 fn part1(towels: &[Vec<u8>], designs: &[Vec<u8>]) -> u64 {
-    return designs.iter().filter(|design| possible_arrangements(towels, design) > 0).count() as u64;
+    return designs.par_iter().filter(|design| possible_arrangements(towels, design) > 0).count() as u64;
 }
 
 fn part2(towels: &[Vec<u8>], designs: &[Vec<u8>]) -> u64 {
-
-    return designs.iter().map(|design| possible_arrangements(towels, design)).sum();
+    return designs.par_iter().map(|design| possible_arrangements(towels, design)).sum();
 }
 
 fn main() {
