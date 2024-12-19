@@ -1,33 +1,30 @@
-use rayon::prelude::*;
+use std::collections::HashSet;
 use std::time::Instant;
 use std::io::{self, Read};
 
 
-fn get_input() -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+fn get_input() -> (Vec<String>, Vec<String>) {
     let stdin = io::stdin();
     let mut input = String::new();
     stdin.lock().read_to_string(&mut input).unwrap();
 
     let (towels, designs) = input.split_once("\n\n").unwrap();
 
-    let towels = towels.split(", ").map(|towel| towel.bytes().collect()).collect();
-    let designs = designs.lines().map(|design| design.bytes().collect()).collect();
+    let towels = towels.split(", ").map(|towel| towel.to_string()).collect();
+    let designs = designs.lines().map(|design| design.to_string()).collect();
 
     return (towels, designs);
 }
 
-fn possible_arrangements(towels: &[Vec<u8>], design: &[u8]) -> u64 {
+fn possible_arrangements(towels_map: &HashSet<String>, longest_towel: usize, design: &String) -> u64 {
     let mut arrangements = vec![0; design.len() + 1];
     arrangements[0] = 1;
 
     for i in 0..design.len() {
-        if arrangements[i] == 0 {
-            continue;
-        }
-
-        for towel in towels {
-            if i + towel.len() <= design.len() && towel == &design[i..i + towel.len()] {
-                arrangements[i + towel.len()] += arrangements[i];
+        for j in i..design.len().min(i + longest_towel) {
+            let towel = &design[i..=j];
+            if towels_map.contains(towel) && towel.len() <= longest_towel {
+                arrangements[j + 1] += arrangements[i];
             }
         }
     }
@@ -35,12 +32,16 @@ fn possible_arrangements(towels: &[Vec<u8>], design: &[u8]) -> u64 {
     return arrangements[design.len()];
 }
 
-fn part1(towels: &[Vec<u8>], designs: &[Vec<u8>]) -> u64 {
-    return designs.par_iter().filter(|design| possible_arrangements(towels, design) > 0).count() as u64;
+fn part1(towels: &[String], designs: &[String]) -> u64 {
+    let towels_map = towels.iter().cloned().collect::<HashSet<_>>();
+    let longest_towel = towels.iter().map(|towel| towel.len()).max().unwrap();
+    return designs.iter().filter(|design| possible_arrangements(&towels_map, longest_towel, design) > 0).count() as u64;
 }
 
-fn part2(towels: &[Vec<u8>], designs: &[Vec<u8>]) -> u64 {
-    return designs.par_iter().map(|design| possible_arrangements(towels, design)).sum();
+fn part2(towels: &[String], designs: &[String]) -> u64 {
+    let towels_map = towels.iter().cloned().collect::<HashSet<_>>();
+    let longest_towel = towels.iter().map(|towel| towel.len()).max().unwrap();
+    return designs.iter().map(|design| possible_arrangements(&towels_map, longest_towel, design)).sum();
 }
 
 fn main() {
