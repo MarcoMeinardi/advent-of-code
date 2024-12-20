@@ -87,31 +87,22 @@ fn part2(grid: &[Vec<bool>], start: &(usize, usize), end: &(usize, usize)) -> u6
         dist_from_end: &[Vec<i64>],
         best: i64
     ) -> u64 {
-        let mut dist = vec![vec![i64::MAX; grid[0].len()]; grid.len()];
-        let mut q = VecDeque::new();
-        q.push_back((start_cost, *start));
         let mut result = 0;
-        dist[start.0][start.1] = start_cost;
 
-        while let Some((cost, (y, x))) = q.pop_front() {
-            debug_assert!(cost == dist[y][x]);
+        for dy in -20_i64..=20_i64 {
+            let ny = (start.0 as i64 + dy) as usize;
+            if ny >= grid.len() {
+                continue;
+            }
+            for dx in (-20 + dy.abs())..=(20 - dy.abs()) {
+                let nx = (start.1 as i64 + dx) as usize;
 
-            for (dy, dx) in DYX {
-                let ny = (y as i32 + dy) as usize;
-                let nx = (x as i32 + dx) as usize;
-
-                if ny >= grid.len() || nx >= grid[0].len() || dist[ny][nx] < i64::MAX {
+                if nx >= grid[0].len() || !grid[ny][nx] {
                     continue;
                 }
-                dist[ny][nx] = cost + 1;
 
-                if grid[ny][nx] && dist_from_end[ny][nx] + cost + 1 <= best - 100 {
-                    debug_assert!(cost + 1 - start_cost <= 20);
+                if dist_from_end[ny][nx] + start_cost + dy.abs() + dx.abs() <= best - 100 {
                     result += 1;
-                }
-
-                if cost < start_cost + 19 {
-                    q.push_back((cost + 1, (ny, nx)));
                 }
             }
         }
@@ -128,7 +119,7 @@ fn part2(grid: &[Vec<bool>], start: &(usize, usize), end: &(usize, usize)) -> u6
     let best = dist_from_start[end.0][end.1];
 
     return (1..grid.len() - 1).map(|y| (1..grid[0].len() - 1)
-        .filter(|x| grid[y][*x] && dist_from_start[y][*x] < best - 1)
+        .filter(|x| grid[y][*x] && dist_from_start[y][*x] <= best - 100)
         .map(|x|
             good_skips(grid, &(y, x), dist_from_start[y][x], &dist_from_end, best)
         ).sum::<u64>()
