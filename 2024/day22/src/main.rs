@@ -28,35 +28,22 @@ fn part1(input: &[u64]) -> u64 {
 }
 
 fn part2(input: &[u64]) -> u64 {
-    fn hash(diffs: &[i64], ind: usize) -> usize {
-        return (
-            ((diffs[ind - 0] + 10) <<  0) |
-            ((diffs[ind - 1] + 10) <<  5) |
-            ((diffs[ind - 2] + 10) << 10) |
-            ((diffs[ind - 3] + 10) << 15)
-        ) as usize;
-    }
-
     let mut sequences_score = Vec::from([0; 1 << 20]);
-    let mut seen = Vec::from([-1; 1 << 20]);
+    let mut seen = Vec::from([0; 1 << 20]);
     let mut best = 0;
-
-    let mut diffs = vec![0; 2000];
 
     for (i, &x) in input.iter().enumerate() {
         let mut x = x as i64;
 
+        let mut key: usize = 0;
         for step_ind in 0..2000 {
             let nx = step(x as u64) as i64;
-            diffs[step_ind] = nx % 10 - x % 10;
+            let diff = nx % 10 - x % 10;
             x = nx;
 
-            if step_ind >= 3 {
-                let key = hash(&diffs, step_ind);
-                if seen[key] == i as i64 {
-                    continue;
-                }
-                seen[key] = i as i64;
+            key = ((diff + 10) | ((key as i64) << 5) & 0xfffff) as usize;
+            if seen[key] != i as i64 + 1 && step_ind >= 3 {
+                seen[key] = i as i64 + 1;
 
                 let new_score = sequences_score[key] + nx as u64 % 10;
                 sequences_score[key] = new_score;
