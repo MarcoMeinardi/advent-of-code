@@ -1,11 +1,42 @@
 use std::time::Instant;
 use std::io::{self, BufRead};
 
-fn get_input() -> Vec<u64> {
-    let stdin = io::stdin();
 
-    return stdin.lock().lines().map(|l| l.unwrap().parse::<u64>().unwrap()).collect();
-}
+// This table can be precomputed at compile time, but rust sucks and it takes 2 minutes
+//
+// const fn const_step(mut x: u64) -> u64 {
+//     x = ((x <<  6) ^ x) & 0xffffff;
+//     x = ((x >>  5) ^ x) & 0xffffff;
+//     x = ((x << 11) ^ x) & 0xffffff;
+//
+//     return x;
+// }
+//
+// const fn precompute_table() -> [u64; 1 << 24] {
+//     let mut table = [0; 1 << 24];
+//
+//     let mut x = 1;
+//     let mut i = 0;
+//     while i < 2000 {
+//         x = const_step(x);
+//         i += 1;
+//     }
+//
+//     let mut px = 1;
+//
+//     i = 0;
+//     while i < 1 << 24 {
+//         table[px as usize] = x;
+//         px = const_step(px);
+//         x = const_step(x);
+//         i += 1;
+//     }
+//
+//     return table;
+// }
+//
+// #[allow(long_running_const_eval)]
+// const TABLE: [u64; 1 << 24] = precompute_table();
 
 fn step(mut x: u64) -> u64 {
     x = ((x <<  6) ^ x) & 0xffffff;
@@ -15,16 +46,33 @@ fn step(mut x: u64) -> u64 {
     return x;
 }
 
-fn part1(input: &[u64]) -> u64 {
-    fn evolve(mut x: u64) -> u64 {
-        for _ in 0..2000 {
-            x = step(x);
-        }
+fn precompute_table() -> Vec<u64> {
+    let mut table = Vec::from([0; 1 << 24]);
 
-        return x;
+    let mut x = 1;
+    for _ in 0..2000 {
+        x = step(x);
     }
 
-    return input.iter().map(|x| evolve(*x)).sum();
+    let mut px = 1;
+
+    for _ in 0..1 << 24 {
+        table[px as usize] = x;
+        px = step(px);
+        x = step(x);
+    }
+
+    return table;
+}
+
+fn get_input() -> Vec<u64> {
+    let stdin = io::stdin();
+
+    return stdin.lock().lines().map(|l| l.unwrap().parse::<u64>().unwrap()).collect();
+}
+
+fn part1(input: &[u64], table: &[u64]) -> u64 {
+    return input.iter().map(|x| table[*x as usize]).sum();
 }
 
 fn part2(input: &[u64]) -> u64 {
@@ -56,10 +104,11 @@ fn part2(input: &[u64]) -> u64 {
 }
 
 fn main() {
+    let table = precompute_table();
     let input = get_input();
 
     let start_part_1 = Instant::now();
-    let result_part_1 = part1(&input);
+    let result_part_1 = part1(&input, &table);
     let end_part_1 = Instant::now();
     println!("Part 1: {} ( {:.2?} )", result_part_1, end_part_1.duration_since(start_part_1));
 
