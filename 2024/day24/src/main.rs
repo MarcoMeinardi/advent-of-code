@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::time::Instant;
 use std::io::{self, Read};
 
@@ -23,7 +24,7 @@ fn get_input() -> (Vec<(String, bool)>, Vec<(String, Operation, String, String)>
     let gates = gates.lines().map(|line| {
         let (input, output) = line.split_once(" -> ").unwrap();
 
-        let input = input.split(" ").collect::<Vec<&str>>();
+        let input = input.split(' ').collect::<Vec<&str>>();
         assert_eq!(input.len(), 3);
 
         let a = input[0].to_string();
@@ -44,7 +45,7 @@ fn get_input() -> (Vec<(String, bool)>, Vec<(String, Operation, String, String)>
 #[derive(Debug)]
 struct Node<'a> {
     name: &'a String,
-    id: usize,
+    value: RefCell<Option<bool>>,
     depends_on: Option<usize>
 }
 
@@ -57,9 +58,9 @@ struct Gate {
 }
 
 impl Gate {
-    pub fn get_output(&self, nodes: &[Node], gates: &[Gate], values: &mut [Option<bool>]) -> bool {
-        let a = nodes[self.a].get_output(nodes, gates, values);
-        let b = nodes[self.b].get_output(nodes, gates, values);
+    pub fn get_output(&self, nodes: &[Node], gates: &[Gate]) -> bool {
+        let a = nodes[self.a].get_output(nodes, gates);
+        let b = nodes[self.b].get_output(nodes, gates);
 
         return match self.op {
             Operation::And => a & b,
@@ -69,28 +70,26 @@ impl Gate {
     }
 }
 
-impl<'a> Node<'a> {
-    pub fn get_output(&self, nodes: &[Node], gates: &[Gate], values: &mut [Option<bool>]) -> bool {
-        if let Some(value) = values[self.id] {
+impl Node<'_> {
+    pub fn get_output(&self, nodes: &[Node], gates: &[Gate]) -> bool {
+        if let Some(value) = *self.value.borrow() {
             return value;
         }
 
         if let Some(depends_on) = self.depends_on {
             let gate = &gates[depends_on];
-            values[self.id] = Some(gate.get_output(nodes, gates, values));
-            return values[self.id].unwrap();
+            *self.value.borrow_mut() = Some(gate.get_output(nodes, gates));
+            return self.value.borrow().unwrap();
         }
 
-        println!("{:?}", self);
-        println!("{:?}", values[self.id]);
         panic!("Unknowable node");
     }
 }
 
 fn char2ind(c: u8) -> usize {
-    if c >= b'0' && c <= b'9' {
+    if c.is_ascii_digit() {
         return (c - b'0') as usize;
-    } else if c >= b'a' && c <= b'z' {
+    } else if c.is_ascii_lowercase() {
         return (c - b'a' + 10) as usize;
     }
 
@@ -102,17 +101,17 @@ fn hash(s: &str) -> usize {
     return char2ind(bytes[0]) * 36 * 36 + char2ind(bytes[1]) * 36 + char2ind(bytes[2]);
 }
 
-fn str2id(s: &str, table: &mut [Option<usize>; 36 * 36 * 36], table_ind: &mut usize) -> (usize, bool) {
+fn maybe_insert_new_string(s: &str, table: &mut [Option<usize>; 36 * 36 * 36], table_ind: &mut usize) -> bool {
     let h = hash(s);
-    if let Some(id) = table[h] {
-        return (id, false);
+    if table[h].is_some() {
+        return false;
     }
     table[h] = Some(*table_ind);
     *table_ind += 1;
-    return (*table_ind - 1, true);
+    return true;
 }
 
-fn str2id_get(s: &str, table: &[Option<usize>; 36 * 36 * 36]) -> usize {
+fn str2id(s: &str, table: &[Option<usize>; 36 * 36 * 36]) -> usize {
     let h = hash(s);
     return table[h].unwrap();
 }
@@ -121,37 +120,33 @@ fn part1(inputs: &[(String, bool)], gates: &[(String, Operation, String, String)
     let mut name_table = [None; 36 * 36 * 36];
     let mut table_ind = 0;
 
-    let (mut nodes, mut values): (Vec<Node>, Vec<Option<bool>>) = inputs.iter().map(|(name, value)|
-        (
-            Node {
-                name,
-                id: str2id(name, &mut name_table, &mut table_ind).0,
-                depends_on: None
-            },
-            Some(*value)
-        )
-    ).unzip();
+    let mut nodes = inputs.iter().map(|(name, value)| {
+        assert!(maybe_insert_new_string(name, &mut name_table, &mut table_ind));
+        return Node {
+            name,
+            value: RefCell::new(Some(*value)),
+            depends_on: None
+        };
+    }).collect::<Vec<Node>>();
 
     for (a, _, b, out) in gates {
-        for x in [a, b, out].iter() {
-            let (id, new) = str2id(x, &mut name_table, &mut table_ind);
-            if new {
+        for x in &[a, b, out] {
+            if maybe_insert_new_string(x, &mut name_table, &mut table_ind) {
                 nodes.push(Node {
                     name: x,
-                    id,
+                    value: RefCell::new(None),
                     depends_on: None
                 });
-                values.push(None);
             }
         }
     }
 
     let gates = gates.iter().map(|(a, op, b, out)|
         Gate {
-            a: str2id_get(a, &name_table),
-            b: str2id_get(b, &name_table),
+            a: str2id(a, &name_table),
+            b: str2id(b, &name_table),
             op: *op,
-            out: str2id_get(out, &name_table)
+            out: str2id(out, &name_table)
         }
     ).collect::<Vec<Gate>>();
 
@@ -161,12 +156,12 @@ fn part1(inputs: &[(String, bool)], gates: &[(String, Operation, String, String)
 
 
     let mut result = nodes.iter()
-        .filter(|node| node.name.starts_with("z"))
+        .filter(|node| node.name.starts_with('z'))
         .map(|node| {
-            (node.name, node.get_output(&nodes, &gates, &mut values))
+            (node.name, node.get_output(&nodes, &gates))
         }).collect::<Vec<(&String, bool)>>();
 
-    result.sort_by(|a, b| b.0.cmp(a.0));
+    result.sort_unstable_by(|a, b| b.0.cmp(a.0));
 
     return result.iter().fold(0, |acc, (_, value)| {
         acc << 1 | (*value as u64)
@@ -185,7 +180,7 @@ fn part2(_inputs: &[(String, bool)], _gates: &[(String, Operation, String, Strin
         .flat_map(|(a, b)| vec![*a, *b])
         .collect::<Vec<&str>>();
 
-    result.sort();
+    result.sort_unstable();
 
     return result.join(",");
 }
